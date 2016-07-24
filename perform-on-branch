@@ -1,0 +1,92 @@
+#!/bin/bash
+
+function double_hyphen_index() {
+  i=1
+  for arg in "$@"
+  do
+    test "$arg" = '--' && echo $i && return
+    i=$((i+1))
+  done
+  echo -1
+  return 1
+}
+
+function fiter_current_branch() {
+  grep '*' | sed 's/* //'
+}
+
+function fail () {
+  echo "$@" ; exit 1
+}
+
+function git_status() {
+  git status
+}
+
+function exit_if_not_git_repo() {
+  git_status >/dev/null 2>&1 || git_status || exit 1
+}
+
+function exit_if_no_git_branches() {
+  test $(git branch | wc -l) -gt 0 || exit 1
+}
+
+function branch_expansion_range() {
+  echo $(($(double_hyphen_index "$@") - 1))
+}
+
+function command_expansion_index() {
+  local hyphen_index=$(double_hyphen_index "$@")
+  echo "$(($hyphen_index + 1))"
+}
+
+function indent_n_somethings() {
+  n="$1"
+  something="$2"
+  while IFS='\n' read line
+  do
+    i=0
+    while test $i -lt $n
+    do
+      echo -n "$something"
+      i=$(($i+1))
+    done
+    echo "$line"
+  done
+}
+
+function command_expansion_range() {
+  local hyphen_index=$(double_hyphen_index "$@")
+  echo "$(($hyphen_index + 2))"
+}
+
+function main() {
+  exit_if_not_git_repo
+  exit_if_no_git_branches
+  local original_branch=$(git branch | fiter_current_branch)
+  local branches=$()
+  local branch_exp_range=$(branch_expansion_range "$@")
+  local prefix='##  '
+
+  for branch in "${@:1:$branch_exp_range}"
+  do
+    local cmd_expand_i=$(command_expansion_index $@)
+    {
+      echo
+      git checkout "$branch" 2>&1
+      test "$(git branch | fiter_current_branch)" = "$branch" && {
+        echo "running: ${@:$cmd_expand_i}"
+      } || {
+        echo "problem switching to branch: $branch"
+      }
+    } | indent_n_somethings 1 "$prefix"
+    test "$(git branch | fiter_current_branch)" = "$branch" && "${@:$cmd_expand_i}"
+  done
+  {
+    echo
+    echo "returning to original branch, '$original_branch'"
+    git checkout "$original_branch" 2>&1
+  } | indent_n_somethings 1 "$prefix"
+}
+
+test $SOURCE_FOR_UNIT_TESTING || main "$@"

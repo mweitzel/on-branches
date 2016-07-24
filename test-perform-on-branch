@@ -1,0 +1,68 @@
+#!/bin/bash
+
+SOURCE_FOR_UNIT_TESTING=1
+source ./perform-on-branch
+
+plan=10
+
+function pass() { plan=$(($plan - 1)); }
+function fail() { echo fail at "$@"; exit 1 ; }
+function assert() { test $? -eq 0 && pass || fail $(caller) "$@" ; }
+function refute() { test $? -ne 0 && pass || fail $(caller) "$@" ; }
+
+# can find index of "--"
+t() {
+  test $(double_hyphen_index 1st 2nd --  4th) -eq  3 ; assert
+  test $(double_hyphen_index 1st 2nd 3rd)     -eq -1 ; assert
+  test $(double_hyphen_index 0th)             -eq -1 ; assert
+  double_hyphen_index > /dev/null                    ; refute
+};t
+
+# filters `git branch` output to current branch
+t() {
+  local output='\
+* lodash-core
+  lodash-funcs
+  master
+  show'
+  test $(echo "$output" | fiter_current_branch) = lodash-core ; assert
+};t
+
+# function exit_if_not_git_repo exits if not git repo
+t() {
+  local status='git status not git repo - unique success message'
+  local e_code=128
+  function git_status() {
+    echo $status 1>&2 # spit stderr, just like "git status" would
+    return $e_code
+  }
+  # run in subshell, as exit_if_not_git_repo should call "exit"
+  local output=$(
+    exit_if_not_git_repo 2>&1 # spits out error, so funnel stderr to stdout
+    echo 'should not see this as exit should have been called - unique fail message'
+  )
+  test "$output" = "$status" ; assert
+};t
+
+t() { # branch_expansion_range gets only branches and retains whitespace
+  local branch_list="$(branch_expansion_range 'b1   1' b2 b3 -- cmd arg1 arg2)"
+  test "$branch_list" = '3' ; assert
+};t
+
+t() { # command_expansion_index returns index to expand args for only the command
+  local index=$(command_expansion_index 'b1   1' b2 b3 -- cmd 'arg     1' arg2)
+  test "$index" = 5 ; assert
+};t
+
+t() { # indent_n_somethings indents n of whatever you give it
+  local it=$(echo 'suffix' | indent_n_somethings 4 ':-)')
+  test "$it" = ':-):-):-):-)suffix' ; assert
+  local it=$(echo 'suffix' | indent_n_somethings 4 ' ')
+  test "$it" = '    suffix' ; assert
+};t
+
+# main master feature spike -- profile index.js --with=helper-function
+# main master commander -- echo banana 'banana       wheel'
+
+test $plan -eq 0 && pass || fail  "expected $plan more passing tests"
+echo 'success'
