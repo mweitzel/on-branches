@@ -91,7 +91,7 @@ function main() {
         echo "problem switching to branch: $branch"
       }
     } | indent_n_somethings 1 "$prefix"
-    is_on_branch "$branch" && "${@:$cmd_expand_i}"
+    is_on_branch "$branch" && bash -c "${@:$cmd_expand_i}"
   done
   {
     echo
