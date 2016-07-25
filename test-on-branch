@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SOURCE_FOR_UNIT_TESTING=1
-source ./perform-on-branch
+source ./on-branch
 
 plan=10
 
