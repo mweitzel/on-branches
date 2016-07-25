@@ -23,12 +23,16 @@ function git_status() {
   git status
 }
 
+function git_branch() {
+  git branch
+}
+
 function exit_if_not_git_repo() {
   git_status >/dev/null 2>&1 || git_status || exit 1
 }
 
 function exit_if_no_git_branches() {
-  test $(git branch | wc -l) -gt 0 || exit 1
+  test $(git_branch | wc -l) -gt 0 || exit 1
 }
 
 function branch_expansion_range() {
@@ -60,10 +64,17 @@ function command_expansion_range() {
   echo "$(($hyphen_index + 2))"
 }
 
+function is_on_branch() {
+  local branch="$1"
+  local sha="$1"
+  test "$(git_branch | fiter_current_branch)" = "$branch" ||
+  test "$(git log -n 1 | head -n 1 | grep $sha)"
+}
+
 function main() {
   exit_if_not_git_repo
   exit_if_no_git_branches
-  local original_branch=$(git branch | fiter_current_branch)
+  local original_branch=$(git_branch | fiter_current_branch)
   local branches=$()
   local branch_exp_range=$(branch_expansion_range "$@")
   local prefix='##  '
@@ -74,13 +85,13 @@ function main() {
     {
       echo
       git checkout "$branch" 2>&1
-      test "$(git branch | fiter_current_branch)" = "$branch" && {
+      is_on_branch "$branch" && {
         echo "running: ${@:$cmd_expand_i}"
       } || {
         echo "problem switching to branch: $branch"
       }
     } | indent_n_somethings 1 "$prefix"
-    test "$(git branch | fiter_current_branch)" = "$branch" && "${@:$cmd_expand_i}"
+    is_on_branch "$branch" && "${@:$cmd_expand_i}"
   done
   {
     echo
