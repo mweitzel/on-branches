@@ -27,7 +27,7 @@ do stuff like check performance
 
 alternativel provide a `-c` as the first argument for the command to be ran as a single string
 
-this allows pipelines to b part of the provided command
+this allows the provided commands to be pipelines
 
 ```bash
 $ ./on-branches -c master feature -- 'echo oh hello hi there man | grep -o "hi there"'
