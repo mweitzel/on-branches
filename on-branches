@@ -68,20 +68,36 @@ function is_on_branch() {
   local branch="$1"
   local sha="$1"
   test "$(git_branch | fiter_current_branch)" = "$branch" ||
-  test "$(git log -n 1 | head -n 1 | grep $sha)"
+  test "$(git log -n 1 | head -n 1 | grep -- $sha)"
 }
 
 function main() {
   exit_if_not_git_repo
   exit_if_no_git_branches
   local original_branch=$(git_branch | fiter_current_branch)
-  local branches=$()
   local branch_exp_range=$(branch_expansion_range "$@")
+  local cmd_expand_i=$(command_expansion_index $@)
   local prefix='##  '
+  local run_as_bash_c=false
 
-  for branch in "${@:1:$branch_exp_range}"
+  local branch_exp_i=""
+  test "$1" = "-c" && {
+    run_as_bash_c=true
+    branch_exp_i=2
+    branch_exp_range=$(($branch_exp_range - 1))
+  } || {
+    branch_exp_i=1
+    for branch in "${@:$branch_exp_i:$branch_exp_range}"
+    do
+      echo "$branch" | grep -q "^-c$" && {
+        echo 'optional -c flag must preceed branch list'
+        exit 1
+      }
+    done
+  }
+
+  for branch in "${@:$branch_exp_i:$branch_exp_range}"
   do
-    local cmd_expand_i=$(command_expansion_index $@)
     {
       echo
       git checkout "$branch" 2>&1
@@ -91,7 +107,13 @@ function main() {
         echo "problem switching to branch: $branch"
       }
     } | indent_n_somethings 1 "$prefix"
-    is_on_branch "$branch" && bash -c "${@:$cmd_expand_i}"
+    is_on_branch "$branch" && {
+      test "$run_as_bash_c" = 'true' && {
+        bash -c  "${@:$cmd_expand_i}"
+      } || {
+        "${@:$cmd_expand_i}"
+      }
+    }
   done
   {
     echo
