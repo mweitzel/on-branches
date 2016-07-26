@@ -59,11 +59,6 @@ function indent_n_somethings() {
   done
 }
 
-function command_expansion_range() {
-  local hyphen_index=$(double_hyphen_index "$@")
-  echo "$(($hyphen_index + 2))"
-}
-
 function is_on_branch() {
   local branch="$1"
   local sha="$1"
