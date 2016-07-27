@@ -18,6 +18,15 @@ t() {
   double_hyphen_index > /dev/null                    ; refute
 };t
 
+# can find index of "-c"
+t() {
+  test $(c_flag_index 1st 2nd -- -c 4th) -eq -1 ; assert
+  test $(c_flag_index 1st 2nd -c 4th)    -eq  3 ; assert
+  test $(c_flag_index 1st 2nd 3rd)       -eq -1 ; assert
+  test $(c_flag_index 0th)               -eq -1 ; assert
+  c_flag_index > /dev/null                      ; refute
+};t
+
 # filters `git branch` output to current branch
 t() {
   local output='\
@@ -52,6 +61,8 @@ t() { # branch_expansion_range gets only branches and retains whitespace
 t() { # command_expansion_index returns index to expand args for only the command
   local index=$(command_expansion_index 'b1   1' b2 b3 -- cmd 'arg     1' arg2)
   test "$index" = 5 ; assert
+  index=$(command_expansion_index b1 b2 b3 b4 -c 'long command | something')
+  test "$index" = 6 ; assert
 };t
 
 t() { # indent_n_somethings indents n of whatever you give it

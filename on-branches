@@ -11,6 +11,19 @@ function double_hyphen_index() {
   return 1
 }
 
+function c_flag_index() {
+  local i=1
+  local dhyphen_i=$(double_hyphen_index "$@")
+  for arg in "$@"
+  do
+    test $dhyphen_i -gt 0  && test $i -ge $dhyphen_i && break
+    test "$arg" = '-c' && echo $i && return
+    i=$((i+1))
+  done
+  echo -1
+  return 1
+}
+
 function fiter_current_branch() {
   grep '*' | sed 's/* //'
 }
@@ -36,12 +49,42 @@ function exit_if_no_git_branches() {
 }
 
 function branch_expansion_range() {
-  echo $(($(double_hyphen_index "$@") - 1))
+  echo $(($(command_expansion_index "$@") - 2))
+}
+
+function min() {
+  local a=$1
+  local b=$2
+  test $hyphen_index -lt $cf_index && echo $hyphen_index || echo $cf_index
+}
+
+function max() {
+  local a=$1
+  local b=$2
+  test $hyphen_index -gt $cf_index && echo $hyphen_index || echo $cf_index
+}
+
+function uses_c_flag() {
+  local hyphen_index=$(double_hyphen_index "$@")
+  local cf_index=$(c_flag_index "$@")
+  { test $hyphen_index -gt -1 &&
+    test $cf_index -gt -1 &&
+    test $cf_index -lt $hyphen_index
+  } || test $cf_index -gt $hyphen_index
 }
 
 function command_expansion_index() {
   local hyphen_index=$(double_hyphen_index "$@")
-  echo "$(($hyphen_index + 1))"
+  local cf_index=$(c_flag_index "$@")
+  local split_index=$(
+    test $hyphen_index -gt -1 && test $cf_index -gt -1 && {
+      min $hyphen_index $cf_index
+      return
+    }
+    max $hyphen_index $cf_index
+  )
+  test $split_index -eq -1 && echo -1 && return 1
+  echo $(($split_index + 1))
 }
 
 function indent_n_somethings() {
@@ -70,26 +113,22 @@ function main() {
   exit_if_not_git_repo
   exit_if_no_git_branches
   local original_branch=$(git_branch | fiter_current_branch)
+  local prefix='##  '
+  local branch_exp_i=1
   local branch_exp_range=$(branch_expansion_range "$@")
   local cmd_expand_i=$(command_expansion_index $@)
-  local prefix='##  '
-  local run_as_bash_c=false
 
-  local branch_exp_i=""
-  test "$1" = "-c" && {
-    run_as_bash_c=true
-    branch_exp_i=2
-    branch_exp_range=$(($branch_exp_range - 1))
-  } || {
-    branch_exp_i=1
-    for branch in "${@:$branch_exp_i:$branch_exp_range}"
-    do
-      echo "$branch" | grep -q "^-c$" && {
-        echo 'optional -c flag must preceed branch list'
-        exit 1
-      }
-    done
+  test $cmd_expand_i -eq -1 && {
+    echo 'no command provided'
+    exit 1
   }
+  test $branch_exp_range -gt 0 || {
+    echo 'no branches provided, must list branches before command'
+    exit 1
+  }
+
+  local run_as_bash_c=false
+  test $(uses_c_flag "$@"; echo $?) -eq 0 && run_as_bash_c=true
 
   for branch in "${@:$branch_exp_i:$branch_exp_range}"
   do
