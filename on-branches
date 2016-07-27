@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function double_hyphen_index() {
-  i=1
+  local i=1
   for arg in "$@"
   do
     test "$arg" = '--' && echo $i && return
@@ -68,20 +68,30 @@ function is_on_branch() {
   local branch="$1"
   local sha="$1"
   test "$(git_branch | fiter_current_branch)" = "$branch" ||
-  test "$(git log -n 1 | head -n 1 | grep $sha)"
+  test "$(git log -n 1 | head -n 1 | grep -- $sha)"
 }
 
 function main() {
   exit_if_not_git_repo
   exit_if_no_git_branches
   local original_branch=$(git_branch | fiter_current_branch)
-  local branches=$()
+  local branch_exp_i=1
   local branch_exp_range=$(branch_expansion_range "$@")
+  local cmd_expand_i=$(command_expansion_index $@)
   local prefix='##  '
 
-  for branch in "${@:1:$branch_exp_range}"
+   test $cmd_expand_i -eq -1 && {
+     echo 'no command provided'
+     exit 1
+   }
+
+   test $branch_exp_range -gt 0 || {
+     echo 'no branches provided, must list branches before command'
+     exit 1
+   }
+
+  for branch in "${@:$branch_exp_i:$branch_exp_range}"
   do
-    local cmd_expand_i=$(command_expansion_index $@)
     {
       echo
       git checkout "$branch" 2>&1
