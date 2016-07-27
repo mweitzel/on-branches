@@ -1,23 +1,10 @@
 #!/bin/bash
 
 function double_hyphen_index() {
-  local i=1
+  i=1
   for arg in "$@"
   do
     test "$arg" = '--' && echo $i && return
-    i=$((i+1))
-  done
-  echo -1
-  return 1
-}
-
-function c_flag_index() {
-  local i=1
-  local dhyphen_i=$(double_hyphen_index "$@")
-  for arg in "$@"
-  do
-    test $dhyphen_i -gt 0  && test $i -ge $dhyphen_i && break
-    test "$arg" = '-c' && echo $i && return
     i=$((i+1))
   done
   echo -1
@@ -49,42 +36,12 @@ function exit_if_no_git_branches() {
 }
 
 function branch_expansion_range() {
-  echo $(($(command_expansion_index "$@") - 2))
-}
-
-function min() {
-  local a=$1
-  local b=$2
-  test $hyphen_index -lt $cf_index && echo $hyphen_index || echo $cf_index
-}
-
-function max() {
-  local a=$1
-  local b=$2
-  test $hyphen_index -gt $cf_index && echo $hyphen_index || echo $cf_index
-}
-
-function uses_c_flag() {
-  local hyphen_index=$(double_hyphen_index "$@")
-  local cf_index=$(c_flag_index "$@")
-  { test $hyphen_index -gt -1 &&
-    test $cf_index -gt -1 &&
-    test $cf_index -lt $hyphen_index
-  } || test $cf_index -gt $hyphen_index
+  echo $(($(double_hyphen_index "$@") - 1))
 }
 
 function command_expansion_index() {
   local hyphen_index=$(double_hyphen_index "$@")
-  local cf_index=$(c_flag_index "$@")
-  local split_index=$(
-    test $hyphen_index -gt -1 && test $cf_index -gt -1 && {
-      min $hyphen_index $cf_index
-      return
-    }
-    max $hyphen_index $cf_index
-  )
-  test $split_index -eq -1 && echo -1 && return 1
-  echo $(($split_index + 1))
+  echo "$(($hyphen_index + 1))"
 }
 
 function indent_n_somethings() {
@@ -102,36 +59,29 @@ function indent_n_somethings() {
   done
 }
 
+function command_expansion_range() {
+  local hyphen_index=$(double_hyphen_index "$@")
+  echo "$(($hyphen_index + 2))"
+}
+
 function is_on_branch() {
   local branch="$1"
   local sha="$1"
   test "$(git_branch | fiter_current_branch)" = "$branch" ||
-  test "$(git log -n 1 | head -n 1 | grep -- $sha)"
+  test "$(git log -n 1 | head -n 1 | grep $sha)"
 }
 
 function main() {
   exit_if_not_git_repo
   exit_if_no_git_branches
   local original_branch=$(git_branch | fiter_current_branch)
-  local prefix='##  '
-  local branch_exp_i=1
+  local branches=$()
   local branch_exp_range=$(branch_expansion_range "$@")
-  local cmd_expand_i=$(command_expansion_index $@)
+  local prefix='##  '
 
-  test $cmd_expand_i -eq -1 && {
-    echo 'no command provided'
-    exit 1
-  }
-  test $branch_exp_range -gt 0 || {
-    echo 'no branches provided, must list branches before command'
-    exit 1
-  }
-
-  local run_as_bash_c=false
-  test $(uses_c_flag "$@"; echo $?) -eq 0 && run_as_bash_c=true
-
-  for branch in "${@:$branch_exp_i:$branch_exp_range}"
+  for branch in "${@:1:$branch_exp_range}"
   do
+    local cmd_expand_i=$(command_expansion_index $@)
     {
       echo
       git checkout "$branch" 2>&1
@@ -141,13 +91,7 @@ function main() {
         echo "problem switching to branch: $branch"
       }
     } | indent_n_somethings 1 "$prefix"
-    is_on_branch "$branch" && {
-      test "$run_as_bash_c" = 'true' && {
-        bash -c  "${@:$cmd_expand_i}"
-      } || {
-        "${@:$cmd_expand_i}"
-      }
-    }
+    is_on_branch "$branch" && "${@:$cmd_expand_i}"
   done
   {
     echo
