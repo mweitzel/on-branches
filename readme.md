@@ -25,19 +25,19 @@ do stuff like check performance
 ##  Switched to branch 'master'
 ```
 
-alternativel provide a `-c` as the first argument for the command to be ran as a single string
+you can pass bash -c and a command string to send more complex commands:
 
 this allows the provided commands to be pipelines
 
 ```bash
-$ ./on-branches -c master feature -- 'echo oh hello hi there man | grep -o "hi there"'
+$ ./on-branches master feature -- bash -c 'echo oh hello hi there man | grep -o "hi there"'
 ##
 ##  Already on 'master'
-##  running: echo oh hello hi there man | grep -o "hi there"
+##  running: bash -c 'echo oh hello hi there man | grep -o "hi there"'
 hi there
 ##
 ##  Switched to branch 'feature'
-##  running: echo oh hello hi there man | grep -o "hi there"
+##  running: bash -c 'echo oh hello hi there man | grep -o "hi there"'
 hi there
 ##
 ##  returning to original branch, 'master'
